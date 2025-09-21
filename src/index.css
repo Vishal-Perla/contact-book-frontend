@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Optional: your own global overrides */
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
