@@ -1,15 +1,27 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { API_BASE } from "../Api";
 
-export default function AddContact() {
+export default function EditContact() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
   const [errors, setErrors] = useState({});
   const [avatarFile, setAvatarFile] = useState(null);
   const [preview, setPreview] = useState("");
+  const [existingAvatarUrl, setExistingAvatarUrl] = useState("");
+
+  useEffect(() => {
+    fetch(`${API_BASE}/contacts/${id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setForm({ name: data.name || "", email: data.email || "", phone: data.phone || "" });
+        setExistingAvatarUrl(data.avatarUrl || ""); // ✅ backend returns avatarUrl
+        setPreview(data.avatarUrl || "");
+      });
+  }, [id]);
 
   const validate = () => {
     const e = {};
@@ -38,8 +50,9 @@ export default function AddContact() {
   };
 
   const removePhoto = () => {
-    setAvatarFile(null);
+    setAvatarFile(new File([], "")); // signal removal
     setPreview("");
+    setExistingAvatarUrl("");
   };
 
   const handleSubmit = async (e) => {
@@ -51,51 +64,43 @@ export default function AddContact() {
     fd.append("email", form.email);
     fd.append("phone", form.phone);
     if (avatarFile) fd.append("avatar", avatarFile);
+    if (avatarFile && avatarFile.size === 0) fd.append("avatar", avatarFile); // removal
 
-    try {
-      const res = await fetch(`${API_BASE}/contacts`, {
-        method: "POST",
-        body: fd,
-      });
-
-      if (res.ok) {
-        alert("Contact added successfully");
-        navigate("/");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.message || "Error saving contact.");
-      }
-    } catch (err) {
-      console.error("Error:", err);
-      alert("Something went wrong.");
+    const res = await fetch(`${API_BASE}/contacts/${id}`, { method: "PUT", body: fd });
+    if (res.ok) {
+      alert("Contact updated successfully");
+      navigate("/");
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || "Failed to update contact.");
     }
   };
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      {/* Header */}
       <div className="flex items-center space-x-3 mb-6">
         <Link to="/" className="flex items-center text-blue-600 hover:underline">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Contacts
         </Link>
-        <h2 className="text-2xl font-bold text-gray-800">Add New Contact</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Edit Contact</h2>
       </div>
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6 space-y-6">
-        <h3 className="text-lg font-semibold text-gray-800">Contact Information</h3>
+        <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
 
         {/* Photo */}
         <div className="flex items-center space-x-6">
           <div className="relative w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-100 overflow-hidden">
             {preview ? (
               <img src={preview} alt="Preview" className="w-full h-full object-cover rounded-full" />
+            ) : existingAvatarUrl ? (
+              <img src={existingAvatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-full" />
             ) : (
               <span className="text-gray-400 text-sm">
                 {(form.name || "No").split(" ").map(w => w[0]).slice(0,2).join("").toUpperCase()}
               </span>
             )}
-            {preview && (
+            {(preview || existingAvatarUrl) && (
               <button
                 type="button"
                 title="Remove"
@@ -107,19 +112,16 @@ export default function AddContact() {
             )}
           </div>
 
-          <div>
-            <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 shadow">
-              <Upload className="w-4 h-4 mr-2" /> Upload Photo
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handlePhotoChange(e.target.files?.[0])}
-                className="hidden"
-              />
-            </label>
-            <p className="text-xs text-gray-500 mt-2">JPEG, PNG, WebP up to 5MB</p>
-            {errors.avatar && <p className="text-red-500 text-sm mt-1">{errors.avatar}</p>}
-          </div>
+          <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 shadow">
+            <Upload className="w-4 h-4 mr-2" /> Upload Photo
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handlePhotoChange(e.target.files?.[0])}
+              className="hidden"
+            />
+          </label>
+          {errors.avatar && <p className="text-red-500 text-sm">{errors.avatar}</p>}
         </div>
 
         {/* Name */}
@@ -167,13 +169,12 @@ export default function AddContact() {
           {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
         </div>
 
-        {/* Actions */}
         <div className="flex justify-end space-x-3">
           <Link to="/" className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100">
             Cancel
           </Link>
           <button type="submit" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow">
-            Save Contact
+            Save Changes
           </button>
         </div>
       </form>
